@@ -1,0 +1,11 @@
+CORRECAO DO HELLO WORLD
+
+1. Abra o GitHub.
+2. Apague o index.html antigo da raiz, se existir.
+3. Arraste a pasta public deste ZIP para o repositorio.
+4. Confirme que existe: public/index.html
+5. Confirme Cloudflare Pages:
+   Build command: npm run build
+   Build output directory: public
+6. Faça commit.
+7. No Cloudflare, clique em Retry deployment.
