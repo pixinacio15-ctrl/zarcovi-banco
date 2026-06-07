@@ -1,8 +1,11 @@
-{
-  "name": "zarcovi-rpg-banco",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "build": "echo ok"
+function showPanel(id) {
+  for (const panel of ["login", "register", "staff"]) {
+    document.getElementById(panel).classList.add("hidden");
   }
+  document.getElementById(id).classList.remove("hidden");
+  document.getElementById("result").textContent = "Painel aberto: " + id;
+}
+
+function fakeMessage(text) {
+  document.getElementById("result").textContent = text;
 }

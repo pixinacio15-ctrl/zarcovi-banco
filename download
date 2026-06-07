@@ -1,222 +1,68 @@
-const cfg = window.ZARCOVI_CONFIG || {};
-const $ = (id) => document.getElementById(id);
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Zarcovi RPG Banco</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="badge">Zarcovi RPG</div>
+      <h1>Zarcovi RPG Banco</h1>
+      <p>Banco oficial de consulta de contas, ryos, level, vila, cargos e dados do RPG.</p>
 
-function setPage(id) {
-  document.querySelectorAll('.page').forEach((el) => el.classList.remove('active'));
-  const page = $(id);
-  if (page) page.classList.add('active');
-}
+      <div class="actions">
+        <button onclick="showPanel('login')">Entrar</button>
+        <button class="secondary" onclick="showPanel('register')">Criar conta</button>
+        <button class="ghost" onclick="showPanel('staff')">Painel Staff</button>
+      </div>
+    </section>
 
-document.querySelectorAll('[data-page]').forEach((btn) => {
-  btn.addEventListener('click', () => setPage(btn.dataset.page));
-});
+    <section class="grid">
+      <article class="card" id="login">
+        <h2>Login</h2>
+        <input id="loginEmail" placeholder="Email" />
+        <input id="loginPassword" type="password" placeholder="Senha do app" />
+        <button onclick="fakeMessage('Login pronto para ligar ao Supabase Auth.')">Entrar</button>
+        <small>Nunca use a senha real da sua conta Zarcovi.</small>
+      </article>
 
-function setMsg(id, text, ok = true) {
-  const el = $(id);
-  if (!el) return;
-  el.textContent = text || '';
-  el.className = `msg ${ok ? 'ok' : 'err'}`;
-}
+      <article class="card hidden" id="register">
+        <h2>Cadastro</h2>
+        <input id="regAccount" placeholder="Conta Zarcovi, exemplo: MY9314" />
+        <input id="regName" placeholder="Nome no RPG" />
+        <input id="regEmail" placeholder="Email" />
+        <input id="regPassword" type="password" placeholder="Senha do app" />
+        <button onclick="fakeMessage('Cadastro pronto para validar a conta no Supabase.')">Criar login</button>
+        <small>A senha é só do app. Não use a senha real da conta Zarcovi.</small>
+      </article>
 
-function token() {
-  return localStorage.getItem('zarcovi_token') || '';
-}
+      <article class="card hidden" id="staff">
+        <h2>Painel Staff</h2>
+        <input id="adminToken" placeholder="ADMIN_TOKEN" />
+        <input id="searchAccount" placeholder="Buscar conta, exemplo: MY9314" />
+        <button onclick="fakeMessage('Busca pronta para usar /api/account/search.')">Buscar conta</button>
+        <button class="secondary" onclick="fakeMessage('Sync pronto para usar /api/sync.')">Sincronizar planilha</button>
+      </article>
 
-function setToken(value) {
-  if (value) localStorage.setItem('zarcovi_token', value);
-}
+      <article class="card status">
+        <h2>Status do Projeto</h2>
+        <ul>
+          <li>Supabase PostgreSQL</li>
+          <li>Cloudflare Pages</li>
+          <li>GitHub Deploy</li>
+          <li>Google Planilhas como fonte</li>
+        </ul>
+      </article>
+    </section>
 
-function adminToken() {
-  return $('adminToken')?.value || localStorage.getItem('zarcovi_admin_token') || '';
-}
+    <section class="result" id="result">
+      Sistema carregado. Se você está vendo esta tela, o Hello World foi removido.
+    </section>
+  </main>
 
-function saveAdminToken() {
-  const value = $('adminToken')?.value;
-  if (value) localStorage.setItem('zarcovi_admin_token', value);
-}
-
-function headers(extra = {}) {
-  return {
-    'Content-Type': 'application/json',
-    ...extra
-  };
-}
-
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    headers: headers({
-      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
-      ...(options.headers || {})
-    })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || data.message || 'Erro na requisição');
-  return data;
-}
-
-async function login(email, password) {
-  const res = await fetch(`${cfg.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: {
-      apikey: cfg.SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${cfg.SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ email, password })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error_description || data.msg || data.message || 'Login falhou');
-  setToken(data.access_token);
-  return data;
-}
-
-function stat(label, value) {
-  return `<div class="stat"><span>${label}</span><strong>${value ?? '-'}</strong></div>`;
-}
-
-function renderAccount(account) {
-  if (!account) return '<p>Nenhuma conta carregada.</p>';
-  return [
-    stat('Conta', account.account_code),
-    stat('Vila', account.vila),
-    stat('Level', account.level),
-    stat('Ryos', account.ryos),
-    stat('Salário', account.salary),
-    stat('Cargos', account.cargos || 'Sem Cargo'),
-    stat('V. Fogo', account.fire_will),
-    stat('V. Pedra', account.stone_will),
-    stat('Personagem', account.character_name),
-    stat('Tesouro', account.treasure),
-    stat('Ranking', account.ranking_position)
-  ].join('');
-}
-
-function renderHistory(rows = []) {
-  if (!rows.length) return '<p>Nenhum histórico encontrado.</p>';
-  return rows.map((row) => `
-    <div class="item">
-      <strong>${row.amount > 0 ? '+' : ''}${row.amount} ryos</strong>
-      <p>${row.reason || 'Sem motivo'} · ${row.type || 'manual'}</p>
-    </div>
-  `).join('');
-}
-
-$('loginBtn')?.addEventListener('click', async () => {
-  try {
-    setMsg('loginMsg', 'Entrando...');
-    await login($('loginEmail').value.trim(), $('loginPassword').value);
-    setMsg('loginMsg', 'Login feito.');
-    setPage('account');
-    $('loadMeBtn').click();
-  } catch (err) {
-    setMsg('loginMsg', err.message, false);
-  }
-});
-
-$('registerBtn')?.addEventListener('click', async () => {
-  try {
-    setMsg('registerMsg', 'Criando acesso...');
-    const body = {
-      account_code: $('regAccount').value.trim().toUpperCase(),
-      display_name: $('regName').value.trim(),
-      email: $('regEmail').value.trim(),
-      password: $('regPassword').value
-    };
-    const data = await api('/api/auth/register', { method: 'POST', body: JSON.stringify(body) });
-    setMsg('registerMsg', `Cadastro criado. Email de login: ${data.email}`);
-    $('loginEmail').value = data.email;
-    setPage('login');
-  } catch (err) {
-    setMsg('registerMsg', err.message, false);
-  }
-});
-
-$('loadMeBtn')?.addEventListener('click', async () => {
-  try {
-    $('accountBox').innerHTML = '<p>Carregando...</p>';
-    const data = await api('/api/account/me');
-    $('accountBox').innerHTML = renderAccount(data.account);
-    $('historyBox').innerHTML = renderHistory(data.history || []);
-  } catch (err) {
-    $('accountBox').innerHTML = `<p class="msg err">${err.message}</p>`;
-  }
-});
-
-$('syncBtn')?.addEventListener('click', async () => {
-  try {
-    saveAdminToken();
-    setMsg('syncMsg', 'Sincronizando...');
-    const data = await api('/api/sync', {
-      method: 'POST',
-      headers: { 'X-Admin-Token': adminToken() },
-      body: JSON.stringify({})
-    });
-    setMsg('syncMsg', `Sync completo: ${data.rows_imported} contas importadas.`);
-  } catch (err) {
-    setMsg('syncMsg', err.message, false);
-  }
-});
-
-$('searchBtn')?.addEventListener('click', async () => {
-  try {
-    saveAdminToken();
-    $('searchResult').innerHTML = '<p>Buscando...</p>';
-    const code = encodeURIComponent($('searchAccount').value.trim().toUpperCase());
-    const data = await api(`/api/account/search?account_code=${code}`, {
-      headers: { 'X-Admin-Token': adminToken() }
-    });
-    $('searchResult').innerHTML = renderAccount(data.account);
-  } catch (err) {
-    $('searchResult').innerHTML = `<p class="msg err">${err.message}</p>`;
-  }
-});
-
-$('adjustRyosBtn')?.addEventListener('click', async () => {
-  try {
-    saveAdminToken();
-    setMsg('ryoMsg', 'Aplicando...');
-    const body = {
-      account_code: $('adminAccount').value.trim().toUpperCase(),
-      amount: Number($('ryoAmount').value || 0),
-      reason: $('ryoReason').value.trim()
-    };
-    const data = await api('/api/admin/adjust-ryos', {
-      method: 'POST',
-      headers: { 'X-Admin-Token': adminToken() },
-      body: JSON.stringify(body)
-    });
-    setMsg('ryoMsg', `Ryos atualizados: ${data.account.ryos}`);
-  } catch (err) {
-    setMsg('ryoMsg', err.message, false);
-  }
-});
-
-$('promoteBtn')?.addEventListener('click', async () => {
-  try {
-    saveAdminToken();
-    setMsg('promoteMsg', 'Promovendo...');
-    const body = {
-      account_code: $('promoteAccount').value.trim().toUpperCase(),
-      role: $('promoteRole').value
-    };
-    await api('/api/admin/promote', {
-      method: 'POST',
-      headers: { 'X-Admin-Token': adminToken() },
-      body: JSON.stringify(body)
-    });
-    setMsg('promoteMsg', 'Conta promovida.');
-  } catch (err) {
-    setMsg('promoteMsg', err.message, false);
-  }
-});
-
-$('logoutBtn')?.addEventListener('click', () => {
-  localStorage.removeItem('zarcovi_token');
-  setPage('home');
-});
-
-if (localStorage.getItem('zarcovi_admin_token')) {
-  const input = $('adminToken');
-  if (input) input.value = localStorage.getItem('zarcovi_admin_token');
-}
+  <script src="/app.js"></script>
+</body>
+</html>
