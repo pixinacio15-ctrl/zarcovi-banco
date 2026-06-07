@@ -1,11 +1,4 @@
-CORRECAO DO HELLO WORLD
-
-1. Abra o GitHub.
-2. Apague o index.html antigo da raiz, se existir.
-3. Arraste a pasta public deste ZIP para o repositorio.
-4. Confirme que existe: public/index.html
-5. Confirme Cloudflare Pages:
-   Build command: npm run build
-   Build output directory: public
-6. Faça commit.
-7. No Cloudflare, clique em Retry deployment.
+window.ZARCOVI_CONFIG = {
+  SUPABASE_URL: "https://hwbglcdtpprmgkpdyjbo.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3YmdsY2R0cHBybWdrcGR5amJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3ODYyNTIsImV4cCI6MjA5NjM2MjI1Mn0.4HVxJ2lZgSrRa1yzfXN0aI-BVY6UXkAnIgq_eMUwA6I"
+};
