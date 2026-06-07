@@ -1,134 +1,209 @@
-ZARCOVI RPG BANCO - COPIAR E COLAR
+-- Zarcovi RPG Banco
+-- Cole este arquivo inteiro no Supabase SQL Editor e execute.
+-- Este SQL reseta apenas as tabelas/funções deste projeto.
 
-==============================
-1) SUPABASE
-==============================
+create extension if not exists pgcrypto;
 
-Supabase > SQL Editor > New query
-Cole o arquivo:
+-- RESET SEGURO DO PROJETO
 
-supabase/schema.sql
+drop trigger if exists on_auth_user_created_zarcovi on auth.users;
+drop trigger if exists set_rpg_accounts_updated_at on public.rpg_accounts;
+drop trigger if exists set_user_profiles_updated_at on public.user_profiles;
 
-Depois clique em RUN.
+drop table if exists public.ryo_transactions cascade;
+drop table if exists public.user_profiles cascade;
+drop table if exists public.sync_logs cascade;
+drop table if exists public.staff_members cascade;
+drop table if exists public.rpg_accounts cascade;
 
-IMPORTANTE:
-Supabase > Authentication > Providers > Email
-Desative:
-Confirm email
+drop function if exists public.handle_new_user() cascade;
+drop function if exists public.set_updated_at() cascade;
+drop function if exists public.is_staff_account(text) cascade;
 
-Isso permite login usando:
-MY9314@zarcovi.local
+-- FUNÇÕES
 
-O usuário só digita MY9314 no site.
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
+-- CONTAS DO RPG
 
-==============================
-2) GITHUB
-==============================
+create table public.rpg_accounts (
+  id uuid primary key default gen_random_uuid(),
+  account_code text unique not null,
+  vila text,
+  level bigint not null default 1,
+  ryos bigint not null default 0,
+  salary bigint not null default 0,
+  cargos text,
+  fire_will bigint not null default 0,
+  stone_will bigint not null default 0,
+  character_name text,
+  treasure bigint not null default 0,
+  ranking_position bigint,
+  raw_data jsonb not null default '{}'::jsonb,
+  source text not null default 'google_sheets',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint rpg_accounts_account_code_not_blank check (length(trim(account_code)) > 0)
+);
 
-Crie um repositório vazio.
-Depois arraste TODOS os arquivos do projeto para o GitHub.
-Não arraste a pasta compactada.
-Arraste os arquivos de dentro.
+create index rpg_accounts_account_code_idx on public.rpg_accounts (account_code);
+create index rpg_accounts_vila_idx on public.rpg_accounts (vila);
+create index rpg_accounts_level_idx on public.rpg_accounts (level desc);
+create index rpg_accounts_ryos_idx on public.rpg_accounts (ryos desc);
+create index rpg_accounts_ranking_position_idx on public.rpg_accounts (ranking_position);
 
-Commit:
+create trigger set_rpg_accounts_updated_at
+before update on public.rpg_accounts
+for each row execute function public.set_updated_at();
 
-Criar Zarcovi RPG Banco
+-- PERFIS DE USUÁRIOS DO APP
 
+create table public.user_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
+  account_code text not null references public.rpg_accounts(account_code) on update cascade on delete restrict,
+  display_name text,
+  role text not null default 'user',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint user_profiles_role_check check (role in ('user', 'staff', 'admin', 'owner')),
+  constraint user_profiles_account_code_not_blank check (length(trim(account_code)) > 0)
+);
 
-==============================
-3) CLOUDFLARE PAGES
-==============================
+create index user_profiles_user_id_idx on public.user_profiles (user_id);
+create index user_profiles_account_code_idx on public.user_profiles (account_code);
+create index user_profiles_role_idx on public.user_profiles (role);
 
-Cloudflare > Workers & Pages > Create > Pages > Connect to Git
+create trigger set_user_profiles_updated_at
+before update on public.user_profiles
+for each row execute function public.set_updated_at();
 
-Build command:
-npm run build
+-- HISTÓRICO DE RYOS
 
-Build output directory:
-public
+create table public.ryo_transactions (
+  id uuid primary key default gen_random_uuid(),
+  account_code text not null references public.rpg_accounts(account_code) on update cascade on delete restrict,
+  amount bigint not null,
+  type text not null default 'adjustment',
+  reason text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint ryo_transactions_type_check check (type in ('adjustment', 'reward', 'penalty', 'salary', 'sync', 'manual'))
+);
 
-Root directory:
-/
+create index ryo_transactions_account_code_idx on public.ryo_transactions (account_code);
+create index ryo_transactions_created_at_idx on public.ryo_transactions (created_at desc);
 
-Framework preset:
-None
+-- LOGS DE SINCRONIZAÇÃO
 
+create table public.sync_logs (
+  id uuid primary key default gen_random_uuid(),
+  status text not null,
+  rows_imported bigint not null default 0,
+  message text,
+  created_at timestamptz not null default now(),
+  constraint sync_logs_status_check check (status in ('success', 'error', 'warning'))
+);
 
-==============================
-4) VARIÁVEIS DO CLOUDFLARE
-==============================
+create index sync_logs_created_at_idx on public.sync_logs (created_at desc);
 
-Cole em:
-Cloudflare Pages > Settings > Environment variables
+-- STAFF / ADMINS
 
-SUPABASE_URL
-https://hwbglcdtpprmgkpdyjbo.supabase.co
+create table public.staff_members (
+  id uuid primary key default gen_random_uuid(),
+  account_code text unique not null references public.rpg_accounts(account_code) on update cascade on delete cascade,
+  role text not null default 'staff',
+  created_at timestamptz not null default now(),
+  constraint staff_members_role_check check (role in ('staff', 'admin', 'owner')),
+  constraint staff_members_account_code_not_blank check (length(trim(account_code)) > 0)
+);
 
-SUPABASE_ANON_KEY
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3YmdsY2R0cHBybWdrcGR5amJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3ODYyNTIsImV4cCI6MjA5NjM2MjI1Mn0.4HVxJ2lZgSrRa1yzfXN0aI-BVY6UXkAnIgq_eMUwA6I
+create index staff_members_account_code_idx on public.staff_members (account_code);
+create index staff_members_role_idx on public.staff_members (role);
 
-SUPABASE_SERVICE_ROLE_KEY
-COLE_A_SERVICE_ROLE_KEY_AQUI
+create or replace function public.is_staff_account(check_account_code text)
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1
+    from public.staff_members
+    where account_code = check_account_code
+  );
+$$;
 
-ADMIN_TOKEN
-ZRC_7kN8dP4wQ2xL9vB6mF3rT1sY5cH0aE8jK2uM9nV4pD
+-- RLS
 
-SYNC_SOURCE_URL
-https://docs.google.com/spreadsheets/d/1cUVGRl63tyJvxRK-9nlAhnLBdgunEy9OU-sKYNIx83Y/export?format=csv&gid=1529142004
+alter table public.rpg_accounts enable row level security;
+alter table public.user_profiles enable row level security;
+alter table public.ryo_transactions enable row level security;
+alter table public.sync_logs enable row level security;
+alter table public.staff_members enable row level security;
 
+-- POLÍTICAS
+-- A API do Cloudflare usa SERVICE_ROLE_KEY para escrita administrativa.
+-- Usuários logados só veem dados básicos necessários.
 
-==============================
-5) COMANDOS OPCIONAIS DO GIT
-==============================
+drop policy if exists "rpg_accounts_read_authenticated" on public.rpg_accounts;
+create policy "rpg_accounts_read_authenticated"
+on public.rpg_accounts
+for select
+to authenticated
+using (true);
 
-Se for usar terminal:
+drop policy if exists "user_profiles_read_own" on public.user_profiles;
+create policy "user_profiles_read_own"
+on public.user_profiles
+for select
+to authenticated
+using (user_id = auth.uid());
 
-git init
-git add .
-git commit -m "Criar Zarcovi RPG Banco"
-git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/SEU_REPO.git
-git push -u origin main
+drop policy if exists "user_profiles_update_own_display" on public.user_profiles;
+create policy "user_profiles_update_own_display"
+on public.user_profiles
+for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
 
+drop policy if exists "ryo_transactions_read_own" on public.ryo_transactions;
+create policy "ryo_transactions_read_own"
+on public.ryo_transactions
+for select
+to authenticated
+using (
+  account_code in (
+    select account_code
+    from public.user_profiles
+    where user_id = auth.uid()
+  )
+);
 
-==============================
-6) TESTE
-==============================
+drop policy if exists "staff_members_read_authenticated" on public.staff_members;
+create policy "staff_members_read_authenticated"
+on public.staff_members
+for select
+to authenticated
+using (true);
 
-Depois do deploy, abra:
+drop policy if exists "sync_logs_no_direct_read" on public.sync_logs;
+create policy "sync_logs_no_direct_read"
+on public.sync_logs
+for select
+to authenticated
+using (false);
 
-/api/health
+-- DADOS INICIAIS OPCIONAIS
+-- Depois da primeira sincronização, promova sua conta pelo painel staff usando ADMIN_TOKEN.
 
-Tem que aparecer:
-
-{
-  "ok": true
-}
-
-Depois no site:
-
-1. Vá na área Staff.
-2. Cole o ADMIN_TOKEN.
-3. Clique em Sincronizar planilha.
-4. Crie login com uma conta existente, exemplo MY9314.
-
-
-==============================
-7) ERRO COMUM
-==============================
-
-Se cadastro der erro de email:
-Desative Confirm email no Supabase Auth.
-
-Se sync der erro:
-A planilha não está pública em CSV.
-Use o Apps Script que está na pasta google-apps-script.
-
-
-SE DER ERRO account_code:
-1. Abra supabase/schema.sql
-2. Cole tudo no SQL Editor
-3. Run
-
-Esse SQL já apaga as tabelas antigas do projeto e cria tudo limpo.
+insert into public.sync_logs (status, rows_imported, message)
+values ('warning', 0, 'Schema Zarcovi RPG Banco instalado. Execute /api/sync para importar a planilha.');

@@ -1,5 +1,6 @@
-{
-  "scripts": {
-    "build": "echo ok"
-  }
-}
+node_modules
+.dev.vars
+.env
+.env.local
+.wrangler
+.DS_Store
