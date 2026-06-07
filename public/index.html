@@ -4,67 +4,91 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zarcovi RPG Banco</title>
-  <link rel="stylesheet" href="/styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/config.js"></script>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <main class="shell">
+  <main class="wrap">
     <section class="hero card">
       <div>
-        <p class="eyebrow">Zarcovi RPG</p>
-        <h1>Banco de contas</h1>
-        <p class="muted">Login, consulta de conta, ryos, level, vila, personagem e ranking sincronizado pela planilha oficial.</p>
+        <p class="tag">Zarcovi RPG</p>
+        <h1>Banco de Contas</h1>
+        <p>Login, consulta de ryos, level, vila, cargo, personagem e tesouro.</p>
       </div>
-      <a href="/admin.html" class="ghost-link">Painel staff</a>
+      <button id="logoutBtn" class="ghost hidden">Sair</button>
     </section>
 
-    <section class="grid two">
-      <div class="card">
+    <section id="authArea" class="grid">
+      <form id="loginForm" class="card">
         <h2>Entrar</h2>
-        <form id="loginForm" class="form">
-          <label>Email<input name="email" type="email" required placeholder="voce@email.com" /></label>
-          <label>Senha<input name="password" type="password" required placeholder="Senha do app" /></label>
-          <button>Entrar</button>
-        </form>
-      </div>
+        <label>Conta Zarcovi</label>
+        <input name="account_code" placeholder="MY9314" required />
+        <label>Senha do app</label>
+        <input name="password" type="password" placeholder="Senha" required />
+        <button>Entrar</button>
+      </form>
 
+      <form id="registerForm" class="card">
+        <h2>Criar login</h2>
+        <label>Conta Zarcovi</label>
+        <input name="account_code" placeholder="MY9314" required />
+        <label>Nome</label>
+        <input name="display_name" placeholder="Seu nome" />
+        <label>Senha do app</label>
+        <input name="password" type="password" minlength="6" placeholder="Mínimo 6 caracteres" required />
+        <button>Cadastrar</button>
+        <p class="hint">Não use a senha real da conta Zarcovi.</p>
+      </form>
+    </section>
+
+    <section id="appArea" class="hidden">
       <div class="card">
-        <h2>Criar acesso</h2>
-        <form id="registerForm" class="form">
-          <label>Nick<input name="nick" required placeholder="Seu nick" /></label>
-          <label>Conta Zarcovi<input name="account_code" required placeholder="MY9314" maxlength="6" /></label>
-          <label>Email<input name="email" type="email" required placeholder="voce@email.com" /></label>
-          <label>Senha do app<input name="password" type="password" required minlength="6" placeholder="mínimo 6 caracteres" /></label>
-          <button>Cadastrar</button>
+        <h2>Minha ficha</h2>
+        <div id="accountCard" class="account"></div>
+      </div>
+
+      <div class="grid">
+        <form id="searchForm" class="card">
+          <h2>Buscar conta</h2>
+          <label>Conta</label>
+          <input name="account_code" placeholder="YK1318" required />
+          <button>Buscar</button>
+        </form>
+
+        <div class="card">
+          <h2>Resultado</h2>
+          <div id="searchResult" class="account muted">Nada buscado ainda.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card admin">
+      <h2>Staff</h2>
+      <p class="hint">Use só se tiver o ADMIN_TOKEN.</p>
+      <div class="grid">
+        <form id="syncForm">
+          <label>ADMIN_TOKEN</label>
+          <input name="token" type="password" placeholder="Token" required />
+          <button>Sincronizar planilha</button>
+        </form>
+        <form id="ryosForm">
+          <label>ADMIN_TOKEN</label>
+          <input name="token" type="password" placeholder="Token" required />
+          <label>Conta</label>
+          <input name="account_code" placeholder="MY9314" required />
+          <label>Ryos para somar/remover</label>
+          <input name="amount" type="number" placeholder="100 ou -100" required />
+          <label>Motivo</label>
+          <input name="reason" placeholder="Missão / compra / prêmio" />
+          <button>Ajustar ryos</button>
         </form>
       </div>
     </section>
 
-    <section id="dashboard" class="card hidden">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Minha conta</p>
-          <h2 id="profileTitle">Carregando...</h2>
-        </div>
-        <button id="logoutBtn" class="secondary">Sair</button>
-      </div>
-      <div id="profileGrid" class="stats"></div>
-    </section>
-
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Ranking</p>
-          <h2>Top contas</h2>
-        </div>
-        <button id="refreshRanking" class="secondary">Atualizar</button>
-      </div>
-      <div class="table-wrap"><table id="rankingTable"></table></div>
-    </section>
-
-    <p id="status" class="status"></p>
+    <pre id="status" class="status"></pre>
   </main>
-  <script type="module" src="/app.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

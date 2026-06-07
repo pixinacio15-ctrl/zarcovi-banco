@@ -1,0 +1,134 @@
+ZARCOVI RPG BANCO - COPIAR E COLAR
+
+==============================
+1) SUPABASE
+==============================
+
+Supabase > SQL Editor > New query
+Cole o arquivo:
+
+supabase/schema.sql
+
+Depois clique em RUN.
+
+IMPORTANTE:
+Supabase > Authentication > Providers > Email
+Desative:
+Confirm email
+
+Isso permite login usando:
+MY9314@zarcovi.local
+
+O usuário só digita MY9314 no site.
+
+
+==============================
+2) GITHUB
+==============================
+
+Crie um repositório vazio.
+Depois arraste TODOS os arquivos do projeto para o GitHub.
+Não arraste a pasta compactada.
+Arraste os arquivos de dentro.
+
+Commit:
+
+Criar Zarcovi RPG Banco
+
+
+==============================
+3) CLOUDFLARE PAGES
+==============================
+
+Cloudflare > Workers & Pages > Create > Pages > Connect to Git
+
+Build command:
+npm run build
+
+Build output directory:
+public
+
+Root directory:
+/
+
+Framework preset:
+None
+
+
+==============================
+4) VARIÁVEIS DO CLOUDFLARE
+==============================
+
+Cole em:
+Cloudflare Pages > Settings > Environment variables
+
+SUPABASE_URL
+https://hwbglcdtpprmgkpdyjbo.supabase.co
+
+SUPABASE_ANON_KEY
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3YmdsY2R0cHBybWdrcGR5amJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3ODYyNTIsImV4cCI6MjA5NjM2MjI1Mn0.4HVxJ2lZgSrRa1yzfXN0aI-BVY6UXkAnIgq_eMUwA6I
+
+SUPABASE_SERVICE_ROLE_KEY
+COLE_A_SERVICE_ROLE_KEY_AQUI
+
+ADMIN_TOKEN
+ZRC_7kN8dP4wQ2xL9vB6mF3rT1sY5cH0aE8jK2uM9nV4pD
+
+SYNC_SOURCE_URL
+https://docs.google.com/spreadsheets/d/1cUVGRl63tyJvxRK-9nlAhnLBdgunEy9OU-sKYNIx83Y/export?format=csv&gid=1529142004
+
+
+==============================
+5) COMANDOS OPCIONAIS DO GIT
+==============================
+
+Se for usar terminal:
+
+git init
+git add .
+git commit -m "Criar Zarcovi RPG Banco"
+git branch -M main
+git remote add origin https://github.com/SEU_USUARIO/SEU_REPO.git
+git push -u origin main
+
+
+==============================
+6) TESTE
+==============================
+
+Depois do deploy, abra:
+
+/api/health
+
+Tem que aparecer:
+
+{
+  "ok": true
+}
+
+Depois no site:
+
+1. Vá na área Staff.
+2. Cole o ADMIN_TOKEN.
+3. Clique em Sincronizar planilha.
+4. Crie login com uma conta existente, exemplo MY9314.
+
+
+==============================
+7) ERRO COMUM
+==============================
+
+Se cadastro der erro de email:
+Desative Confirm email no Supabase Auth.
+
+Se sync der erro:
+A planilha não está pública em CSV.
+Use o Apps Script que está na pasta google-apps-script.
+
+
+SE DER ERRO account_code:
+1. Abra supabase/schema.sql
+2. Cole tudo no SQL Editor
+3. Run
+
+Esse SQL já apaga as tabelas antigas do projeto e cria tudo limpo.

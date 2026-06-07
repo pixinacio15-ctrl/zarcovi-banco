@@ -1,132 +1,111 @@
-export function parseCSV(text) {
-  const rows = [];
-  let row = [];
-  let value = '';
-  let inQuotes = false;
+function parseCsvLine(line) {
+  const out = [];
+  let cur = "";
+  let quote = false;
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const next = text[i + 1];
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    const next = line[i + 1];
 
-    if (char === '"' && inQuotes && next === '"') {
-      value += '"';
+    if (ch === '"' && quote && next === '"') {
+      cur += '"';
       i++;
-      continue;
+    } else if (ch === '"') {
+      quote = !quote;
+    } else if (ch === ',' && !quote) {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
     }
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-    if (char === ',' && !inQuotes) {
-      row.push(value);
-      value = '';
-      continue;
-    }
-    if ((char === '\n' || char === '\r') && !inQuotes) {
-      if (char === '\r' && next === '\n') i++;
-      row.push(value);
-      if (row.some(cell => String(cell).trim() !== '')) rows.push(row);
-      row = [];
-      value = '';
-      continue;
-    }
-    value += char;
+  }
+  out.push(cur);
+  return out.map(v => v.trim());
+}
+
+export function parseCsv(text) {
+  return text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(parseCsvLine);
+}
+
+function numberValue(value) {
+  if (value === null || value === undefined) return 0;
+  const cleaned = String(value)
+    .replace(/[^0-9,.-]/g, "")
+    .replace(/\.(?=\d{3})/g, "")
+    .replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function textValue(value) {
+  return String(value || "").trim();
+}
+
+export function sheetRowsToAccounts(rows) {
+  const headerIndex = rows.findIndex(row =>
+    row.some(v => String(v).toLowerCase() === "vila") &&
+    row.some(v => String(v).toLowerCase() === "conta")
+  );
+
+  if (headerIndex < 0) {
+    throw new Error("Cabeçalho não encontrado. Procure por: Vila, CONTA, Level, Ryos Visível...");
   }
 
-  row.push(value);
-  if (row.some(cell => String(cell).trim() !== '')) rows.push(row);
-  return rows;
-}
-
-function cleanKey(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-function findHeaderIndex(headers, aliases) {
-  const keys = headers.map(cleanKey);
-  for (const alias of aliases) {
-    const normalized = cleanKey(alias);
-    const index = keys.findIndex(k => k === normalized || k.includes(normalized));
-    if (index >= 0) return index;
-  }
-  return -1;
-}
-
-export function toNumber(value, fallback = 0) {
-  const s = String(value ?? '')
-    .replace(/\s/g, '')
-    .replace(/B$/i, '')
-    .replace(/\./g, '')
-    .replace(',', '.')
-    .replace(/[^0-9.-]/g, '');
-  const n = Number(s);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-export function normalizeAccountsCSV(text) {
-  const rows = parseCSV(text);
-  if (!rows.length) return [];
-
-  let headerRowIndex = rows.findIndex(row => {
-    const joined = row.map(cleanKey).join(' | ');
-    return joined.includes('vila') && joined.includes('conta') && joined.includes('level');
-  });
-
-  if (headerRowIndex < 0) {
-    throw new Error('Cabeçalho não encontrado. O CSV precisa ter: Vila, CONTA, Level, Ryos Visível, Salário, Cargos, V. Fogo, V. Pedra, Personagem, Tesouro.');
-  }
-
-  const headers = rows[headerRowIndex];
-  const idx = {
-    village: findHeaderIndex(headers, ['Vila']),
-    account_code: findHeaderIndex(headers, ['CONTA', 'Conta']),
-    level: findHeaderIndex(headers, ['Level', 'Lvl']),
-    ryos_visible: findHeaderIndex(headers, ['Ryos Visível', 'Ryos Visivel', 'Ryos']),
-    salary: findHeaderIndex(headers, ['Salário', 'Salario']),
-    cargos: findHeaderIndex(headers, ['Cargos', 'Cargo']),
-    will_fire: findHeaderIndex(headers, ['V. Fogo', 'Fogo']),
-    will_stone: findHeaderIndex(headers, ['V. Pedra', 'Pedra']),
-    character_name: findHeaderIndex(headers, ['Personagem']),
-    treasure: findHeaderIndex(headers, ['Tesouro'])
+  const header = rows[headerIndex].map(v => String(v).trim().toLowerCase());
+  const col = names => {
+    for (const name of names) {
+      const index = header.indexOf(name.toLowerCase());
+      if (index >= 0) return index;
+    }
+    return -1;
   };
 
-  if (idx.account_code < 0) throw new Error('Coluna CONTA não encontrada no CSV.');
+  const indexes = {
+    village: col(["vila"]),
+    account_code: col(["conta"]),
+    level: col(["level"]),
+    ryos_visible: col(["ryos visível", "ryos visivel", "ryos"]),
+    salary: col(["salário", "salario"]),
+    cargo: col(["cargos", "cargo"]),
+    fire_will: col(["v. fogo", "fogo"]),
+    stone_will: col(["v. pedra", "pedra"]),
+    character_name: col(["personagem"]),
+    treasure: col(["tesouro"])
+  };
+
+  if (indexes.account_code < 0) {
+    throw new Error("Coluna CONTA não encontrada.");
+  }
 
   const accounts = [];
-  for (let r = headerRowIndex + 1; r < rows.length; r++) {
-    const row = rows[r];
-    const accountCode = String(row[idx.account_code] || '').trim().toUpperCase();
-    if (!/^[A-Z]{2}\d{4}$/.test(accountCode)) continue;
+
+  for (let i = headerIndex + 1; i < rows.length; i++) {
+    const row = rows[i];
+    const code = textValue(row[indexes.account_code]).toUpperCase();
+
+    if (!/^[A-Z]{2}\d{4}$/i.test(code)) continue;
 
     accounts.push({
-      account_code: accountCode,
-      village: idx.village >= 0 ? String(row[idx.village] || '').trim() : null,
-      level: idx.level >= 0 ? Math.max(0, Math.floor(toNumber(row[idx.level], 1))) : 1,
-      ryos_visible: idx.ryos_visible >= 0 ? toNumber(row[idx.ryos_visible], 0) : 0,
-      salary: idx.salary >= 0 ? toNumber(row[idx.salary], 0) : 0,
-      cargos: idx.cargos >= 0 ? String(row[idx.cargos] || 'Sem Cargo').trim() : 'Sem Cargo',
-      will_fire: idx.will_fire >= 0 ? Math.floor(toNumber(row[idx.will_fire], 0)) : 0,
-      will_stone: idx.will_stone >= 0 ? Math.floor(toNumber(row[idx.will_stone], 0)) : 0,
-      character_name: idx.character_name >= 0 ? String(row[idx.character_name] || '').trim() : null,
-      treasure: idx.treasure >= 0 ? toNumber(row[idx.treasure], 0) : 0,
-      source_row: r + 1,
-      source_hash: hashRow(row)
+      account_code: code,
+      village: indexes.village >= 0 ? textValue(row[indexes.village]) : null,
+      level: indexes.level >= 0 ? Math.trunc(numberValue(row[indexes.level])) || 1 : 1,
+      ryos_visible: indexes.ryos_visible >= 0 ? numberValue(row[indexes.ryos_visible]) : 0,
+      salary: indexes.salary >= 0 ? numberValue(row[indexes.salary]) : 0,
+      cargo: indexes.cargo >= 0 ? textValue(row[indexes.cargo]) || "Sem Cargo" : "Sem Cargo",
+      fire_will: indexes.fire_will >= 0 ? numberValue(row[indexes.fire_will]) : 0,
+      stone_will: indexes.stone_will >= 0 ? numberValue(row[indexes.stone_will]) : 0,
+      character_name: indexes.character_name >= 0 ? textValue(row[indexes.character_name]) : null,
+      treasure: indexes.treasure >= 0 ? numberValue(row[indexes.treasure]) : 0,
+      source_row: i + 1,
+      last_synced_at: new Date().toISOString()
     });
   }
-  return accounts;
-}
 
-function hashRow(row) {
-  let hash = 0;
-  const str = row.join('|');
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return String(hash);
+  const unique = new Map();
+  for (const account of accounts) unique.set(account.account_code, account);
+  return [...unique.values()];
 }

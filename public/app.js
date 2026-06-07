@@ -1,116 +1,164 @@
 const cfg = window.ZARCOVI_CONFIG;
 const client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-const statusEl = document.querySelector('#status');
-const dashboard = document.querySelector('#dashboard');
-const profileGrid = document.querySelector('#profileGrid');
-const profileTitle = document.querySelector('#profileTitle');
 
-function setStatus(msg, type = 'info') {
-  statusEl.textContent = msg || '';
-  statusEl.style.color = type === 'error' ? 'var(--danger)' : type === 'ok' ? 'var(--ok)' : 'var(--accent)';
+const $ = (id) => document.getElementById(id);
+const statusBox = $("status");
+
+function setStatus(msg) {
+  statusBox.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
 }
 
-function stat(label, value) {
-  return `<div class="stat"><span>${label}</span><strong>${value ?? '-'}</strong></div>`;
+function accountEmail(code) {
+  return `${String(code).trim().toLowerCase()}@zarcovi.local`;
 }
 
-async function api(path, options = {}) {
+function cleanCode(code) {
+  return String(code || "").trim().toUpperCase();
+}
+
+function renderAccount(el, acc) {
+  if (!acc) {
+    el.innerHTML = `<span class="muted">Conta não encontrada.</span>`;
+    return;
+  }
+
+  const rows = [
+    ["Conta", acc.account_code],
+    ["Vila", acc.village || "-"],
+    ["Level", acc.level],
+    ["Ryos", acc.ryos_visible],
+    ["Salário", acc.salary],
+    ["Cargo", acc.cargo || "-"],
+    ["V. Fogo", acc.fire_will],
+    ["V. Pedra", acc.stone_will],
+    ["Personagem", acc.character_name || "-"],
+    ["Tesouro", acc.treasure]
+  ];
+
+  el.innerHTML = rows.map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join("");
+}
+
+async function getAccount(code) {
+  const { data, error } = await client
+    .from("rpg_accounts")
+    .select("*")
+    .eq("account_code", cleanCode(code))
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function refreshSession() {
   const { data } = await client.auth.getSession();
-  const token = data?.session?.access_token;
-  const res = await fetch(path, {
-    ...options,
-    headers: {
-      'content-type': 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {})
-    }
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || 'Erro na requisição.');
-  return json;
+  const session = data.session;
+
+  if (!session) {
+    $("authArea").classList.remove("hidden");
+    $("appArea").classList.add("hidden");
+    $("logoutBtn").classList.add("hidden");
+    return;
+  }
+
+  $("authArea").classList.add("hidden");
+  $("appArea").classList.remove("hidden");
+  $("logoutBtn").classList.remove("hidden");
+
+  const { data: profile, error } = await client
+    .from("user_profiles")
+    .select("*")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (profile?.account_code) renderAccount($("accountCard"), await getAccount(profile.account_code));
 }
 
-document.querySelector('#loginForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  setStatus('Entrando...');
-  const { error } = await client.auth.signInWithPassword({
-    email: form.get('email'),
-    password: form.get('password')
-  });
-  if (error) return setStatus(error.message, 'error');
-  await loadMe();
-  setStatus('Login realizado.', 'ok');
+$("registerForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const account_code = cleanCode(form.get("account_code"));
+  const display_name = String(form.get("display_name") || account_code).trim();
+  const password = String(form.get("password") || "");
+
+  try {
+    const exists = await getAccount(account_code);
+    if (!exists) throw new Error("Essa conta ainda não está sincronizada no banco.");
+
+    const { error } = await client.auth.signUp({
+      email: accountEmail(account_code),
+      password,
+      options: { data: { account_code, display_name } }
+    });
+
+    if (error) throw error;
+    setStatus("Cadastro criado. Agora entre com a conta e senha.");
+  } catch (err) {
+    setStatus(`Erro no cadastro: ${err.message}`);
+  }
 });
 
-document.querySelector('#registerForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  setStatus('Criando acesso...');
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const account_code = cleanCode(form.get("account_code"));
+  const password = String(form.get("password") || "");
+
   try {
-    const result = await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+    const { error } = await client.auth.signInWithPassword({ email: accountEmail(account_code), password });
+    if (error) throw error;
+    setStatus("Login feito.");
+    await refreshSession();
+  } catch (err) {
+    setStatus(`Erro no login: ${err.message}`);
+  }
+});
+
+$("logoutBtn").addEventListener("click", async () => {
+  await client.auth.signOut();
+  setStatus("Saiu.");
+  await refreshSession();
+});
+
+$("searchForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const account_code = cleanCode(new FormData(e.target).get("account_code"));
+  try {
+    renderAccount($("searchResult"), await getAccount(account_code));
+  } catch (err) {
+    setStatus(`Erro na busca: ${err.message}`);
+  }
+});
+
+$("syncForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const token = new FormData(e.target).get("token");
+  try {
+    const res = await fetch("/api/sync", { method: "POST", headers: { "x-admin-token": token } });
+    const data = await res.json();
+    setStatus(data);
+  } catch (err) {
+    setStatus(`Erro no sync: ${err.message}`);
+  }
+});
+
+$("ryosForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  try {
+    const res = await fetch("/api/add-ryos", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-token": form.get("token") },
       body: JSON.stringify({
-        nick: form.get('nick'),
-        account_code: form.get('account_code'),
-        email: form.get('email'),
-        password: form.get('password')
+        account_code: cleanCode(form.get("account_code")),
+        amount: Number(form.get("amount")),
+        reason: form.get("reason") || "Ajuste staff"
       })
     });
-    const data = await result.json();
-    if (!result.ok) throw new Error(data.error || 'Erro ao cadastrar.');
-    setStatus('Cadastro criado. Agora faça login.', 'ok');
-    event.currentTarget.reset();
-  } catch (error) {
-    setStatus(error.message, 'error');
+    const data = await res.json();
+    setStatus(data);
+  } catch (err) {
+    setStatus(`Erro no ajuste: ${err.message}`);
   }
 });
 
-document.querySelector('#logoutBtn').addEventListener('click', async () => {
-  await client.auth.signOut();
-  dashboard.classList.add('hidden');
-  setStatus('Você saiu.', 'ok');
-});
-
-document.querySelector('#refreshRanking').addEventListener('click', loadRanking);
-
-async function loadMe() {
-  const { data } = await client.auth.getSession();
-  if (!data.session) return;
-  try {
-    const me = await api('/api/accounts/me');
-    const p = me.profile;
-    if (!p) return;
-    dashboard.classList.remove('hidden');
-    profileTitle.textContent = `${p.nick || 'Jogador'} • ${p.account_code || 'sem conta'}`;
-    profileGrid.innerHTML = [
-      stat('Vila', p.village),
-      stat('Level', p.level),
-      stat('Ryos', Number(p.ryos_visible || 0).toLocaleString('pt-BR')),
-      stat('Salário', Number(p.salary || 0).toLocaleString('pt-BR')),
-      stat('Cargo', p.cargos),
-      stat('Fogo', p.will_fire),
-      stat('Pedra', p.will_stone),
-      stat('Personagem', p.character_name),
-      stat('Tesouro', Number(p.treasure || 0).toLocaleString('pt-BR'))
-    ].join('');
-  } catch (error) {
-    setStatus(error.message, 'error');
-  }
-}
-
-async function loadRanking() {
-  try {
-    const data = await api('/api/ranking?limit=50');
-    const rows = data.ranking || [];
-    document.querySelector('#rankingTable').innerHTML = `
-      <thead><tr><th>#</th><th>Conta</th><th>Vila</th><th>Level</th><th>Ryos</th><th>Personagem</th></tr></thead>
-      <tbody>${rows.map(r => `<tr><td>${r.position}</td><td>${r.account_code}</td><td>${r.village || '-'}</td><td>${r.level}</td><td>${Number(r.ryos_visible || 0).toLocaleString('pt-BR')}</td><td>${r.character_name || '-'}</td></tr>`).join('')}</tbody>`;
-  } catch (error) {
-    setStatus(error.message, 'error');
-  }
-}
-
-loadMe();
-loadRanking();
+refreshSession().catch(err => setStatus(err.message));

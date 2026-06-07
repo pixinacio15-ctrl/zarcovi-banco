@@ -2,13 +2,7 @@
   "name": "zarcovi-rpg-banco",
   "version": "1.0.0",
   "private": true,
-  "description": "Banco Zarcovi RPG com Supabase, Cloudflare Pages e GitHub.",
   "scripts": {
-    "build": "node scripts/build.js",
-    "dev": "wrangler pages dev public --compatibility-date=2026-06-06",
-    "deploy": "npm run build && wrangler pages deploy public --project-name zarcovi-rpg-banco"
-  },
-  "devDependencies": {
-    "wrangler": "latest"
+    "build": "echo ok"
   }
 }
