@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Painel Staff - Zarcovi RPG Banco</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="hero card">
+      <div>
+        <p class="eyebrow">Staff</p>
+        <h1>Painel do banco</h1>
+        <p class="muted">Sincronize a planilha, busque contas, ajuste ryos e promova usuários.</p>
+      </div>
+      <a href="/" class="ghost-link">Voltar</a>
+    </section>
+
+    <section class="card">
+      <h2>Token staff</h2>
+      <div class="form row-form">
+        <label>ADMIN_TOKEN<input id="adminToken" type="password" placeholder="Cole o token secreto" /></label>
+        <button id="saveToken">Salvar no navegador</button>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <div class="card">
+        <h2>Sincronizar planilha</h2>
+        <p class="muted">Usa a variável SYNC_SOURCE_URL do Cloudflare. Também aceita uma URL manual.</p>
+        <label class="form">URL CSV opcional<input id="syncUrl" placeholder="https://.../exec ou export?format=csv" /></label>
+        <button id="syncBtn">Sincronizar agora</button>
+      </div>
+
+      <div class="card">
+        <h2>Promover usuário</h2>
+        <div class="form">
+          <label>Email<input id="promoteEmail" type="email" placeholder="membro@email.com" /></label>
+          <label>Cargo
+            <select id="promoteRole">
+              <option value="player">player</option>
+              <option value="staff">staff</option>
+              <option value="admin">admin</option>
+              <option value="owner">owner</option>
+            </select>
+          </label>
+          <button id="promoteBtn">Aplicar cargo</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <div class="card">
+        <h2>Buscar conta</h2>
+        <div class="form row-form">
+          <label>Busca<input id="searchQ" placeholder="MY9314, vila ou personagem" /></label>
+          <button id="searchBtn">Buscar</button>
+        </div>
+        <div class="table-wrap"><table id="searchTable"></table></div>
+      </div>
+
+      <div class="card">
+        <h2>Ajustar Ryos</h2>
+        <div class="form">
+          <label>Conta<input id="ryosAccount" placeholder="MY9314" /></label>
+          <label>Valor<input id="ryosAmount" type="number" step="1" placeholder="ex: 500 ou -500" /></label>
+          <label>Motivo<input id="ryosReason" placeholder="Pagamento, correção, evento..." /></label>
+          <button id="ryosBtn">Aplicar ajuste</button>
+        </div>
+      </div>
+    </section>
+
+    <p id="status" class="status"></p>
+  </main>
+  <script type="module" src="/admin.js"></script>
+</body>
+</html>

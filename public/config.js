@@ -1,0 +1,4 @@
+window.ZARCOVI_CONFIG = {
+  SUPABASE_URL: 'https://hwbglcdtpprmgkpdyjbo.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3YmdsY2R0cHBybWdrcGR5amJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3ODYyNTIsImV4cCI6MjA5NjM2MjI1Mn0.4HVxJ2lZgSrRa1yzfXN0aI-BVY6UXkAnIgq_eMUwA6I'
+};
